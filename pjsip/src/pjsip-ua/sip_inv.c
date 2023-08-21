@@ -2241,6 +2241,9 @@ static pj_status_t inv_negotiate_sdp( pjsip_inv_session *inv )
                      PJMEDIA_SDP_NEG_STATE_WAIT_NEGO, 
                      PJMEDIA_SDPNEG_EINSTATE);
 
+    if (inv->state == PJSIP_INV_STATE_DISCONNECTED)
+        return PJSIP_ERRNO_FROM_SIP_STATUS(inv->cause);
+
     status = pjmedia_sdp_neg_negotiate(inv->pool_prov, inv->neg, 0);
 
     PJ_PERROR(4,(inv->obj_name, status, "SDP negotiation done"));
@@ -2252,20 +2255,16 @@ static pj_status_t inv_negotiate_sdp( pjsip_inv_session *inv )
      * after a successful SDP negotiation, for example when no audio 
      * codec is present in the offer (see ticket #1034).
      */
-    if (inv->state != PJSIP_INV_STATE_DISCONNECTED) {
+    if (inv->state == PJSIP_INV_STATE_DISCONNECTED)
+        return PJSIP_ERRNO_FROM_SIP_STATUS(inv->cause);
 
-        /* Swap the flip-flop pool when SDP negotiation success. */
-        if (status == PJ_SUCCESS) {
-            swap_pool(&inv->pool_prov, &inv->pool_active);
-        }
-
-        /* Reset the provisional pool regardless SDP negotiation result. */
-        pj_pool_reset(inv->pool_prov);
-
-    } else {
-
-        status = PJSIP_ERRNO_FROM_SIP_STATUS(inv->cause);
+    /* Swap the flip-flop pool when SDP negotiation success. */
+    if (status == PJ_SUCCESS) {
+        swap_pool(&inv->pool_prov, &inv->pool_active);
     }
+
+    /* Reset the provisional pool regardless SDP negotiation result. */
+    pj_pool_reset(inv->pool_prov);
 
     return status;
 }
